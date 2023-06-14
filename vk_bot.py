@@ -4,7 +4,7 @@ from random import randrange
 from vk_api import VkUpload
 from vk_api.longpoll import VkLongPoll, VkEventType
 from collections import Counter
-from create_DataBase import Session, DatingUser, MatchingUser, Photos, BlacklistedUser, database_check
+from create_DataBase import Session, DatingUser, MatchingUser, BlacklistedUser, Photos, database_check
 from settings import vk_token, search_token
 from send_photo import upload_photo, send_photo
 
@@ -132,9 +132,9 @@ class VKinderBot:
         """
         Отправка запроса для поиска новых партнёров
         """
-        r = self.users_search_request(search_token, offset, city_name, sex, age_min, age_max)
+        req = self.users_search_request(search_token, offset, city_name, sex, age_min, age_max)
         id_list = []
-        for entry in r:
+        for entry in req:
             if entry['is_closed'] == False:
                 set_id = (entry['first_name'], entry['last_name'], entry['id'])
                 id_list.append(set_id)
@@ -194,7 +194,7 @@ class VKinderBot:
         """
         Запрос информации о фотографиях пользователя
         """
-        r = requests.get(
+        req = requests.get(
             'https://api.vk.com/method/photos.get',
             params={
                 'access_token': {search_token},
@@ -205,13 +205,13 @@ class VKinderBot:
                 'extended': 1,
                 'photos_sizes': 'z'
             })
-        return r.json()['response']['items']
+        return req.json()['response']['items']
 
     def users_search_request(self, search_token, offset, city_name, sex, age_min, age_max):
         """
          Запрос информации о пользователе
         """
-        r = requests.get('https://api.vk.com/method/users.search',
+        req = requests.get('https://api.vk.com/method/users.search',
                          params={
                              'access_token': {search_token},
                              'v': 5.131,
@@ -224,8 +224,11 @@ class VKinderBot:
                              'age_from': {age_min},
                              'age_to': {age_max}
                          })
-        r = r.json()['response']['items']
-        return r
+        try:
+            req = req.json()['response']['items']
+        except:
+            print('Не могу получить данные')
+        return req
 
     def add_liked(self, top3_pics, matching_id):
         """
@@ -234,31 +237,31 @@ class VKinderBot:
         session = Session()
         user = session.query(DatingUser).all()
         id_dater = user[0].dating_id
-        r = requests.get(
+        req = requests.get(
             'https://api.vk.com/method/users.get',
             params={'access_token': vk_token,
                     'v': 5.131,
                     'user_ids': matching_id,
                     'fields': 'bdate, sex',
                     'name_case': 'Nom'})
-        r = r.json()
-        first_name = r['response'][0]['first_name']
-        last_name = r['response'][0]['last_name']
+        req = req.json()
+        first_name = req['response'][0]['first_name']
+        last_name = req['response'][0]['last_name']
         try:
-            bdate = r['response'][0]['bdate']
+            bdate = req['response'][0]['bdate']
         except:
             bdate = 'NA'
-        sex = r['response'][0]['sex']
-        liked_user = MatchingUser(matching_id=matching_id, first_name=first_name, last_name=last_name, bdate=bdate,
+        sex = req['response'][0]['sex']
+        liked_user = MatchingUser(matching_id=matching_id,
                                   id_dater=id_dater, sex=sex)
         session.add(liked_user)
         session.commit()
-        for photo in top3_pics:
-            pic_link = photo[0]
-            pic_likes = photo[1]
-            photo = Photos(id_matcher=matching_id, photo_link=pic_link, likes_count=pic_likes)
-            session.add(photo)
-            session.commit()
+        # for photo in top3_pics:
+        #     pic_link = photo[0]
+        #     pic_likes = photo[1]
+        #     photo = Photos(id_matcher=matching_id, photo_link=pic_link, likes_count=pic_likes)
+        #     session.add(photo)
+        #     session.commit()
 
     def add_blocked(self, entry_id):
         """
@@ -374,45 +377,45 @@ class VKinderBot:
         session = Session()
         self.write_msg(event.chat_id, 'НЕОБХОДИМО ВВЕСТИ ДАННЫЕ ДЛЯ РАБОТЫ БОТА VKINDER: ')
         vk_id = event.user_id
-        r = requests.get('https://api.vk.com/method/users.get',
+        req = requests.get('https://api.vk.com/method/users.get',
                          params={
                              'access_token': vk_token,
                              'v': 5.131,
                              'user_ids': vk_id,
                              'fields': 'bdate, sex, city',
                              'name_case': 'Nom'})
-        r = r.json()
+        req = req.json()
         print('Получены данные пользователя с сервера ВК...')
         try:
-            first_name = r['response'][0]['first_name']
+            first_name = req['response'][0]['first_name']
         except:
             self.write_msg(event.chat_id, 'ДАННЫХ ВАШЕЙ СТРАНИЦЫ ВК НЕДОСТАТОЧНО...')
             self.write_msg(event.chat_id, f'УКАЖИТЕ ВАШЕ ИМЯ...')
             first_name = self.wait_command()
         try:
-            last_name = r['response'][0]['last_name']
+            last_name = req['response'][0]['last_name']
         except:
             self.write_msg(event.chat_id, 'ДАННЫХ ВАШЕЙ СТРАНИЦЫ ВК НЕДОСТАТОЧНО...')
             self.write_msg(event.chat_id, f'УКАЖИТЕ ВАШУ ФАМИЛИЮ...')
             last_name = self.wait_command()
         try:
-            city_name = r['response'][0]['city']['title']
+            city_name = req['response'][0]['city']['title']
         except:
             self.write_msg(event.chat_id, 'ДАННЫХ ВАШЕЙ СТРАНИЦЫ ВК НЕДОСТАТОЧНО...')
             self.write_msg(event.chat_id, f'УКАЖИТЕ ВАШ ГОРОД...')
             city_name = self.wait_command()
         try:
-            city_id = r['response'][0]['city']['id']
+            city_id = req['response'][0]['city']['id']
         except:
             city_id = 'Неизвестно'
         try:
-            bdate = r['response'][0]['bdate']
+            bdate = req['response'][0]['bdate']
         except:
             self.write_msg(event.chat_id, 'ДАННЫХ ВАШЕЙ СТРАНИЦЫ ВК НЕДОСТАТОЧНО...')
             self.write_msg(event.chat_id, f'УКАЖИТЕ ВАШУ ДАТУ РОЖДЕНИЯ(НАПРИМЕР 01.01.1901)...')
             bdate = self.wait_command()
         try:
-            sex = r['response'][0]['sex']
+            sex = req['response'][0]['sex']
         except:
             self.write_msg(event.chat_id, 'ДАННЫХ ВАШЕЙ СТРАНИЦЫ ВК НЕДОСТАТОЧНО...')
             self.write_msg(event.chat_id, f'УКАЖИТЕ ВАШ ПОЛ...')
@@ -451,9 +454,7 @@ class VKinderBot:
         else:
             self.write_msg(event.chat_id, f'НИЧЕГО НЕ ПОНЯТНО, СПРОШУ ЕЩЁ РАЗ...')
             return self.add_new_dating_user(event)
-        user = DatingUser(dating_id=vk_id, first_name=first_name, last_name=last_name, city_name=city_name,
-                          city_id=city_id, bdate=bdate,
-                          age_min=age_min, age_max=age_max, sex=sex, partners_sex=partners_sex)
+        user = DatingUser(dating_id=vk_id, partners_sex=partners_sex)
         session.add(user)
         session.commit()
         self.write_msg(event.chat_id, f'ПОЛЬЗОВАТЕЛЬ {vk_id} ДОБАВЛЕН В БАЗУ...')

@@ -17,14 +17,6 @@ class DatingUser(Base):
     __tablename__ = 'DatingUser'
 
     dating_id = sq.Column(sq.Integer, primary_key=True)
-    first_name = sq.Column(sq.String)
-    last_name = sq.Column(sq.String)
-    bdate = sq.Column(sq.String)
-    age_min = sq.Column(sq.Integer)
-    age_max = sq.Column(sq.Integer)
-    city_name = sq.Column(sq.String)
-    city_id = sq.Column(sq.Integer)
-    sex = sq.Column(sq.Integer)
     partners_sex = sq.Column(sq.Integer)
     matchingusers = relationship('MatchingUser', backref='DatingUser')
     blacklistedusers = relationship('BlacklistedUser', backref='DatingUser')
@@ -34,13 +26,8 @@ class MatchingUser(Base):
     __tablename__ = 'MatchingUser'
 
     matching_id = sq.Column(sq.Integer, primary_key=True)
-    first_name = sq.Column(sq.String)
-    last_name = sq.Column(sq.String)
-    bdate = sq.Column(sq.String)
     id_dater = sq.Column(sq.Integer,sq.ForeignKey('DatingUser.dating_id'))
-    photos = relationship('Photos', backref='MatchingUser')
-    sex = sq.Column(sq.Integer)
-
+    
 
 class Photos(Base):
     __tablename__ = 'Photos'
