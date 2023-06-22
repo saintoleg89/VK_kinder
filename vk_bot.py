@@ -119,14 +119,25 @@ class VKinderBot:
         Получение исходных данных для поиска партнёров
         """
         session = Session()
-        id_dater = event.user_id
-        user = session.query(DatingUser).filter(DatingUser.dating_id == id_dater).all()
-        age_min = user[0].age_min
-        age_max = user[0].age_max
-        city_id = user[0].city_id
+        user = session.query(DatingUser).all()
         offset = 0
         sex = user[0].partners_sex
-        self.show_possible_partners(event, search_token, offset, city_id, sex, age_min, age_max)
+        vk_id = event.user_id
+        req = requests.get('https://api.vk.com/method/users.get',
+                         params={
+                             'access_token': vk_token,
+                             'v': 5.131,
+                             'user_ids': vk_id,
+                             'fields': 'bdate, sex, city',
+                             'name_case': 'Nom'})
+        req = req.json()
+        try:
+            city_name = req['response'][0]['city']['title']
+        except:
+            city_name = 'Неизвестно'
+        age_min = 18
+        age_max = 30
+        self.show_possible_partners(event, search_token, offset, city_name, sex, age_min, age_max)
 
     def show_possible_partners(self, event, search_token, offset, city_name, sex, age_min, age_max):
         """
@@ -245,23 +256,24 @@ class VKinderBot:
                     'fields': 'bdate, sex',
                     'name_case': 'Nom'})
         req = req.json()
-        first_name = req['response'][0]['first_name']
+        try:
+            first_name = req['response'][0]['first_name']
+        except:
+            first_name = 'NA'
         last_name = req['response'][0]['last_name']
         try:
             bdate = req['response'][0]['bdate']
         except:
             bdate = 'NA'
-        sex = req['response'][0]['sex']
+        try:
+            sex = req['response'][0]['sex']
+        except:
+            sex = 'NA'
         liked_user = MatchingUser(matching_id=matching_id,
                                   id_dater=id_dater, sex=sex)
         session.add(liked_user)
         session.commit()
-        # for photo in top3_pics:
-        #     pic_link = photo[0]
-        #     pic_likes = photo[1]
-        #     photo = Photos(id_matcher=matching_id, photo_link=pic_link, likes_count=pic_likes)
-        #     session.add(photo)
-        #     session.commit()
+        
 
     def add_blocked(self, entry_id):
         """
@@ -353,7 +365,7 @@ class VKinderBot:
             self.write_msg(event.chat_id, f'НИЧЕГО НЕ ПОНЯТНО, СПРОШУ ЕЩЁ РАЗ...')
             return self.update_user_data(event)
         session.query(DatingUser).filter(DatingUser.dating_id == id_update).update(
-            {'age_min': age_min, 'age_max': age_max, 'partners_sex': partners_sex})
+            {'partners_sex': partners_sex})
         session.commit()
         self.write_msg(event.chat_id, 'ИНФОРМАЦИЯ ОБНОВЛЕНА...')
 
